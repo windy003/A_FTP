@@ -1,0 +1,4 @@
+#Wed Dec 25 12:23:57 CST 2024
+base.0=D\:\\files\\projects\\ftp_A\\app\\build\\intermediates\\dex\\release\\mergeDexRelease\\classes.dex
+renamed.0=classes.dex
+path.0=classes.dex

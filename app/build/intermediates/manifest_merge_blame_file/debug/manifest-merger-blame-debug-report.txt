@@ -1,0 +1,96 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.example.ftpserver"
+4    android:versionCode="1"
+5    android:versionName="1.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="21"
+8-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml
+9        android:targetSdkVersion="33" />
+9-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml
+10
+11    <uses-permission android:name="android.permission.INTERNET" />
+11-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:5:5-67
+11-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:5:22-64
+12    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+12-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:6:5-79
+12-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:6:22-76
+13    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+13-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:7:5-80
+13-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:7:22-77
+14    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+14-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:8:5-81
+14-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:8:22-78
+15
+16    <permission
+16-->[androidx.core:core:1.9.0] C:\Users\windy\.gradle\caches\8.9\transforms\0d3aa342b9549cc1543d2e7fe296e21a\transformed\core-1.9.0\AndroidManifest.xml:22:5-24:47
+17        android:name="com.example.ftpserver.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+17-->[androidx.core:core:1.9.0] C:\Users\windy\.gradle\caches\8.9\transforms\0d3aa342b9549cc1543d2e7fe296e21a\transformed\core-1.9.0\AndroidManifest.xml:23:9-81
+18        android:protectionLevel="signature" />
+18-->[androidx.core:core:1.9.0] C:\Users\windy\.gradle\caches\8.9\transforms\0d3aa342b9549cc1543d2e7fe296e21a\transformed\core-1.9.0\AndroidManifest.xml:24:9-44
+19
+20    <uses-permission android:name="com.example.ftpserver.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+20-->[androidx.core:core:1.9.0] C:\Users\windy\.gradle\caches\8.9\transforms\0d3aa342b9549cc1543d2e7fe296e21a\transformed\core-1.9.0\AndroidManifest.xml:26:5-97
+20-->[androidx.core:core:1.9.0] C:\Users\windy\.gradle\caches\8.9\transforms\0d3aa342b9549cc1543d2e7fe296e21a\transformed\core-1.9.0\AndroidManifest.xml:26:22-94
+21
+22    <application
+22-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:10:5-26:19
+23        android:allowBackup="true"
+23-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:11:9-35
+24        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+24-->[androidx.core:core:1.9.0] C:\Users\windy\.gradle\caches\8.9\transforms\0d3aa342b9549cc1543d2e7fe296e21a\transformed\core-1.9.0\AndroidManifest.xml:28:18-86
+25        android:debuggable="true"
+26        android:icon="@android:drawable/ic_menu_upload"
+26-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:12:9-56
+27        android:label="@string/app_name"
+27-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:13:9-41
+28        android:roundIcon="@android:drawable/ic_menu_upload"
+28-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:14:9-61
+29        android:supportsRtl="true"
+29-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:15:9-35
+30        android:testOnly="true"
+31        android:theme="@style/Theme.AppCompat.Light.DarkActionBar" >
+31-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:16:9-67
+32        <activity
+32-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:18:9-25:20
+33            android:name="com.example.ftpserver.MainActivity"
+33-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:19:13-41
+34            android:exported="true" >
+34-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:20:13-36
+35            <intent-filter>
+35-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:21:13-24:29
+36                <action android:name="android.intent.action.MAIN" />
+36-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:22:17-69
+36-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:22:25-66
+37
+38                <category android:name="android.intent.category.LAUNCHER" />
+38-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:23:17-77
+38-->D:\files\projects\ftp_A\app\src\main\AndroidManifest.xml:23:27-74
+39            </intent-filter>
+40        </activity>
+41
+42        <provider
+42-->[androidx.emoji2:emoji2:1.2.0] C:\Users\windy\.gradle\caches\8.9\transforms\0205d01b13d19ff48c6b4bbca7646eb1\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:24:9-32:20
+43            android:name="androidx.startup.InitializationProvider"
+43-->[androidx.emoji2:emoji2:1.2.0] C:\Users\windy\.gradle\caches\8.9\transforms\0205d01b13d19ff48c6b4bbca7646eb1\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:25:13-67
+44            android:authorities="com.example.ftpserver.androidx-startup"
+44-->[androidx.emoji2:emoji2:1.2.0] C:\Users\windy\.gradle\caches\8.9\transforms\0205d01b13d19ff48c6b4bbca7646eb1\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:26:13-68
+45            android:exported="false" >
+45-->[androidx.emoji2:emoji2:1.2.0] C:\Users\windy\.gradle\caches\8.9\transforms\0205d01b13d19ff48c6b4bbca7646eb1\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:27:13-37
+46            <meta-data
+46-->[androidx.emoji2:emoji2:1.2.0] C:\Users\windy\.gradle\caches\8.9\transforms\0205d01b13d19ff48c6b4bbca7646eb1\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:29:13-31:52
+47                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+47-->[androidx.emoji2:emoji2:1.2.0] C:\Users\windy\.gradle\caches\8.9\transforms\0205d01b13d19ff48c6b4bbca7646eb1\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:30:17-75
+48                android:value="androidx.startup" />
+48-->[androidx.emoji2:emoji2:1.2.0] C:\Users\windy\.gradle\caches\8.9\transforms\0205d01b13d19ff48c6b4bbca7646eb1\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:31:17-49
+49            <meta-data
+49-->[androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\windy\.gradle\caches\8.9\transforms\4abddb3c4c99e8f97082dc63036a713f\transformed\jetified-lifecycle-process-2.4.1\AndroidManifest.xml:31:13-33:52
+50                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+50-->[androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\windy\.gradle\caches\8.9\transforms\4abddb3c4c99e8f97082dc63036a713f\transformed\jetified-lifecycle-process-2.4.1\AndroidManifest.xml:32:17-78
+51                android:value="androidx.startup" />
+51-->[androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\windy\.gradle\caches\8.9\transforms\4abddb3c4c99e8f97082dc63036a713f\transformed\jetified-lifecycle-process-2.4.1\AndroidManifest.xml:33:17-49
+52        </provider>
+53    </application>
+54
+55</manifest>
