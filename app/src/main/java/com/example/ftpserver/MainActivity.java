@@ -3,7 +3,6 @@ package com.example.ftpserver;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.TextView;
-import android.content.Context;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
