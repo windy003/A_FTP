@@ -73,10 +73,20 @@ public class MainActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_REQUEST_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startFtpServer();
-            } else {
-                Toast.makeText(this, "需要存储权限才能运行FTP服务器", Toast.LENGTH_LONG).show();
+            if (grantResults.length > 0) {
+                boolean allPermissionsGranted = true;
+                for (int result : grantResults) {
+                    if (result != PackageManager.PERMISSION_GRANTED) {
+                        allPermissionsGranted = false;
+                        break;
+                    }
+                }
+                if (allPermissionsGranted) {
+                    startFtpServer();
+                } else {
+                    // 处理权限被拒绝的情况
+                    Toast.makeText(this, "需要所有权限才能启动服务器", Toast.LENGTH_SHORT).show();
+                }
             }
         }
     }
