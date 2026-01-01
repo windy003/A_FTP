@@ -1,9 +1,13 @@
 package com.example.ftpserver
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.provider.Settings
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
@@ -32,6 +36,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val PORT = 2121
         private const val PERMISSION_REQUEST_CODE = 1
+        private const val MANAGE_STORAGE_REQUEST_CODE = 2
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,24 +53,73 @@ class MainActivity : AppCompatActivity() {
                 checkPermissionAndStartServer()
             }
         }
+
+        // 应用启动时自动请求权限
+        checkAndRequestPermissions()
+    }
+
+    // 应用启动时检查并请求权限
+    private fun checkAndRequestPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // Android 11+ 需要请求所有文件访问权限
+            if (!Environment.isExternalStorageManager()) {
+                try {
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivityForResult(intent, MANAGE_STORAGE_REQUEST_CODE)
+                    Toast.makeText(this, "请授予所有文件访问权限以使用FTP服务器", Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                    startActivityForResult(intent, MANAGE_STORAGE_REQUEST_CODE)
+                    Toast.makeText(this, "请授予所有文件访问权限以使用FTP服务器", Toast.LENGTH_LONG).show()
+                }
+            }
+        } else {
+            // Android 10 及以下使用传统权限请求
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                        Manifest.permission.READ_EXTERNAL_STORAGE
+                    ),
+                    PERMISSION_REQUEST_CODE
+                )
+            }
+        }
     }
 
     private fun checkPermissionAndStartServer() {
-        if (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                    Manifest.permission.READ_EXTERNAL_STORAGE
-                ),
-                PERMISSION_REQUEST_CODE
-            )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // Android 11+ 检查所有文件访问权限
+            if (Environment.isExternalStorageManager()) {
+                startFtpServer()
+            } else {
+                checkAndRequestPermissions()
+            }
         } else {
-            startFtpServer()
+            // Android 10 及以下使用传统权限
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                        Manifest.permission.READ_EXTERNAL_STORAGE
+                    ),
+                    PERMISSION_REQUEST_CODE
+                )
+            } else {
+                startFtpServer()
+            }
         }
     }
 
@@ -83,6 +137,19 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     // 处理权限被拒绝的情况
                     Toast.makeText(this, "需要所有权限才能启动服务器", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == MANAGE_STORAGE_REQUEST_CODE) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                if (Environment.isExternalStorageManager()) {
+                    Toast.makeText(this, "已获得所有文件访问权限", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "需要所有文件访问权限才能使用FTP服务器", Toast.LENGTH_LONG).show()
                 }
             }
         }
