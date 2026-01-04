@@ -12,7 +12,7 @@ android {
         minSdk 21
         targetSdk 33
         versionCode 1
-        versionName "2026/1/2-1"
+        versionName "2026/1/4-1"
     }
 
     buildTypes {
@@ -51,4 +51,11 @@ dependencies {
     implementation 'org.apache.ftpserver:ftpserver-core:1.1.1'
     implementation 'org.slf4j:slf4j-api:1.7.32'
     implementation 'org.slf4j:slf4j-simple:1.7.32'
+    // FTP客户端
+    implementation 'commons-net:commons-net:3.9.0'
+    // ViewPager2 用于Fragment切换
+    implementation 'androidx.viewpager2:viewpager2:1.0.0'
+    // 协程
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4'
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.5.1'
 }

@@ -32,6 +32,7 @@ class MainActivity : AppCompatActivity() {
     private var server: FtpServer? = null
     private lateinit var statusText: TextView
     private lateinit var toggleButton: Button
+    private lateinit var btnClient: Button
 
     companion object {
         private const val PORT = 2121
@@ -45,6 +46,7 @@ class MainActivity : AppCompatActivity() {
 
         statusText = findViewById(R.id.statusText)
         toggleButton = findViewById(R.id.toggleButton)
+        btnClient = findViewById(R.id.btnClient)
 
         toggleButton.setOnClickListener {
             if (server?.isStopped == false) {
@@ -52,6 +54,11 @@ class MainActivity : AppCompatActivity() {
             } else {
                 checkPermissionAndStartServer()
             }
+        }
+
+        btnClient.setOnClickListener {
+            val intent = Intent(this, FtpClientActivity::class.java)
+            startActivity(intent)
         }
 
         // 应用启动时自动请求权限

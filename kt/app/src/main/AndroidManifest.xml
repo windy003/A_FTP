@@ -29,6 +29,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".FtpClientActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".FileManagerActivity"
+            android:exported="false" />
     </application>
 
 </manifest>
