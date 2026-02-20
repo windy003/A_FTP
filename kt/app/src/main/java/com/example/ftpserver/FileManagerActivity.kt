@@ -32,15 +32,14 @@ class FileManagerActivity : AppCompatActivity() {
             tab.text = tabTitles[position]
         }.attach()
 
-        // 当切换到本地标签时，刷新以显示粘贴按钮状态
+        // 切换到本地标签时刷新（更新粘贴按钮状态）
+        // 切换到服务器标签时只更新上传按钮状态，不重新加载文件（避免并发FTP调用）
         viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
-                if (position == 1) {
-                    // 切换到本地标签，刷新
-                    val fragment = supportFragmentManager.findFragmentByTag("f$position")
-                    if (fragment is LocalFilesFragment) {
-                        fragment.refresh()
-                    }
+                val fragment = supportFragmentManager.findFragmentByTag("f$position")
+                when {
+                    position == 1 && fragment is LocalFilesFragment -> fragment.refresh()
+                    position == 0 && fragment is ServerFilesFragment -> fragment.refreshUploadButton()
                 }
             }
         })
@@ -48,16 +47,24 @@ class FileManagerActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == android.R.id.home) {
-            onBackPressed()
+            // 左上角返回按钮：断开连接并退出到主界面
+            FtpClientManager.disconnect()
+            finish()
             return true
         }
         return super.onOptionsItemSelected(item)
     }
 
+    @Suppress("DEPRECATION")
     override fun onBackPressed() {
-        // 断开FTP连接
-        FtpClientManager.disconnect()
-        super.onBackPressed()
+        // 系统返回手势：返回当前 fragment 的上层目录，不退出主界面
+        val currentPosition = viewPager.currentItem
+        val fragment = supportFragmentManager.findFragmentByTag("f$currentPosition")
+        when (fragment) {
+            is ServerFilesFragment -> fragment.goBack()
+            is LocalFilesFragment -> fragment.goBack()
+        }
+        // 不调用 super.onBackPressed()，阻止 Activity 退出
     }
 
     override fun onDestroy() {

@@ -34,6 +34,14 @@
                 android:textSize="14sp"
                 android:singleLine="true"
                 android:ellipsize="start" />
+
+            <Button
+                android:id="@+id/btnCopy"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="复制"
+                android:textSize="12sp"
+                android:visibility="gone" />
         </LinearLayout>
 
         <ProgressBar
@@ -50,7 +58,7 @@
             android:layout_height="match_parent" />
     </LinearLayout>
 
-    <!-- 悬浮粘贴按钮 -->
+    <!-- 下载 FAB：当服务器剪贴板有文件时显示 -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabPaste"
         android:layout_width="wrap_content"
@@ -58,7 +66,7 @@
         android:layout_gravity="bottom|end"
         android:layout_margin="16dp"
         android:src="@android:drawable/ic_menu_save"
-        android:contentDescription="粘贴"
+        android:contentDescription="下载到此目录"
         android:visibility="gone" />
 
 </FrameLayout>

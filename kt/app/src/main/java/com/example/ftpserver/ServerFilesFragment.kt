@@ -9,10 +9,12 @@ import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -25,10 +27,12 @@ class ServerFilesFragment : Fragment() {
     private lateinit var btnBack: ImageButton
     private lateinit var btnCopy: Button
     private lateinit var progressBar: ProgressBar
+    private lateinit var fabUpload: FloatingActionButton
     private lateinit var adapter: ServerFileAdapter
 
     private var isSelectionMode = false
     private val selectedItems = mutableSetOf<Int>()
+    private var isLoading = false  // 防止并发加载
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -46,6 +50,7 @@ class ServerFilesFragment : Fragment() {
         btnBack = view.findViewById(R.id.btnBack)
         btnCopy = view.findViewById(R.id.btnCopy)
         progressBar = view.findViewById(R.id.progressBar)
+        fabUpload = view.findViewById(R.id.fabUpload)
 
         adapter = ServerFileAdapter(
             onItemClick = { file -> onFileClick(file) },
@@ -64,38 +69,73 @@ class ServerFilesFragment : Fragment() {
             copySelectedFiles()
         }
 
+        fabUpload.setOnClickListener {
+            uploadFiles()
+        }
+
         loadFiles()
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (::fabUpload.isInitialized) {
+            updateUploadButtonVisibility()
+        }
+    }
+
     private fun loadFiles() {
+        if (isLoading) return  // 防止并发加载
+        isLoading = true
         progressBar.visibility = View.VISIBLE
 
         lifecycleScope.launch {
             try {
-                val path = withContext(Dispatchers.IO) {
-                    FtpClientManager.getCurrentPath()
-                }
-                val files = withContext(Dispatchers.IO) {
-                    FtpClientManager.listFiles()
+                val (path, files, error) = withContext(Dispatchers.IO) {
+                    try {
+                        val p = FtpClientManager.getCurrentPath()
+                        val f = FtpClientManager.listFiles()
+                        Triple(p, f, null)
+                    } catch (e: Exception) {
+                        Triple("/", emptyList<org.apache.commons.net.ftp.FTPFile>(), e.message)
+                    }
                 }
 
-                textPath.text = path
-                adapter.setFiles(files.filter { it.name != "." && it.name != ".." })
-                exitSelectionMode()
+                if (error != null) {
+                    Toast.makeText(context, "加载失败: $error", Toast.LENGTH_LONG).show()
+                } else {
+                    val filtered = files.filter { it.name != "." && it.name != ".." }
+                    textPath.text = path
+                    adapter.setFiles(filtered)
+                    exitSelectionMode()
+                    updateUploadButtonVisibility()
+                    if (filtered.isEmpty()) {
+                        Toast.makeText(context, "目录为空 (路径: $path)", Toast.LENGTH_SHORT).show()
+                    }
+                }
             } catch (e: Exception) {
-                Toast.makeText(context, "加载失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "加载错误: ${e.message}", Toast.LENGTH_LONG).show()
             } finally {
                 progressBar.visibility = View.GONE
+                isLoading = false
             }
         }
     }
 
+    fun updateUploadButtonVisibility() {
+        if (::fabUpload.isInitialized) {
+            fabUpload.visibility = if (FtpClientManager.hasLocalClipboardItems()) View.VISIBLE else View.GONE
+        }
+    }
+
+    // 供 Activity 切换标签时调用：只更新上传按钮，不重新加载文件
+    fun refreshUploadButton() {
+        updateUploadButtonVisibility()
+    }
+
     private fun onFileClick(file: FTPFile) {
         if (isSelectionMode) {
-            // 在选择模式下，点击切换选择状态
             adapter.toggleSelection(adapter.getFiles().indexOf(file))
         } else if (file.isDirectory) {
-            // 进入目录
             progressBar.visibility = View.VISIBLE
             lifecycleScope.launch {
                 val success = withContext(Dispatchers.IO) {
@@ -158,13 +198,66 @@ class ServerFilesFragment : Fragment() {
             FtpClientManager.ClipboardItem(
                 remotePath = remotePath,
                 name = file.name,
-                isDirectory = file.isDirectory
+                isDirectory = file.isDirectory,
+                isLocal = false
             )
         }
 
         FtpClientManager.copyToClipboard(clipboardItems)
         Toast.makeText(context, "已复制 ${clipboardItems.size} 个项目，请切换到本地标签页粘贴", Toast.LENGTH_LONG).show()
         exitSelectionMode()
+    }
+
+    // 上传本地剪贴板文件到当前服务器目录
+    private fun uploadFiles() {
+        val clipboardItems = FtpClientManager.getClipboard().filter { it.isLocal }
+        if (clipboardItems.isEmpty()) {
+            Toast.makeText(context, "没有可上传的本地文件", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val currentPath = textPath.text.toString()
+        val itemNames = clipboardItems.joinToString("\n") { "• ${it.name}" }
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("确认上传")
+            .setMessage("将以下 ${clipboardItems.size} 个项目上传到:\n$currentPath\n\n$itemNames")
+            .setPositiveButton("上传") { _, _ ->
+                performUpload(currentPath)
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    private fun performUpload(remotePath: String) {
+        progressBar.visibility = View.VISIBLE
+        fabUpload.isEnabled = false
+
+        lifecycleScope.launch {
+            try {
+                val success = withContext(Dispatchers.IO) {
+                    FtpClientManager.pasteToRemote(remotePath) { fileName ->
+                        launch(Dispatchers.Main) {
+                            Toast.makeText(context, "正在上传: $fileName", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+
+                if (success) {
+                    Toast.makeText(context, "上传完成！", Toast.LENGTH_SHORT).show()
+                    FtpClientManager.clearClipboard()
+                    loadFiles()
+                } else {
+                    Toast.makeText(context, "上传失败", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "上传错误: ${e.message}", Toast.LENGTH_SHORT).show()
+            } finally {
+                progressBar.visibility = View.GONE
+                fabUpload.isEnabled = true
+                updateUploadButtonVisibility()
+            }
+        }
     }
 
     private fun goToParentDirectory() {
@@ -179,6 +272,11 @@ class ServerFilesFragment : Fragment() {
                 progressBar.visibility = View.GONE
             }
         }
+    }
+
+    // 供 FileManagerActivity 调用：系统返回手势时导航上层目录
+    fun goBack() {
+        goToParentDirectory()
     }
 
     fun refresh() {
@@ -242,7 +340,6 @@ class ServerFileAdapter(
 
     fun setFiles(newFiles: List<FTPFile>) {
         files.clear()
-        // 排序：文件夹在前，文件在后
         files.addAll(newFiles.sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() })))
         notifyDataSetChanged()
     }

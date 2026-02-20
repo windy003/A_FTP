@@ -5,6 +5,7 @@ import android.os.Environment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -28,11 +29,14 @@ class LocalFilesFragment : Fragment() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var textPath: TextView
     private lateinit var btnBack: ImageButton
+    private lateinit var btnCopy: Button
     private lateinit var fabPaste: FloatingActionButton
     private lateinit var progressBar: ProgressBar
     private lateinit var adapter: LocalFileAdapter
 
     private var currentPath: File = Environment.getExternalStorageDirectory()
+    private var isSelectionMode = false
+    private val selectedItems = mutableSetOf<Int>()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -48,18 +52,25 @@ class LocalFilesFragment : Fragment() {
         recyclerView = view.findViewById(R.id.recyclerView)
         textPath = view.findViewById(R.id.textPath)
         btnBack = view.findViewById(R.id.btnBack)
+        btnCopy = view.findViewById(R.id.btnCopy)
         fabPaste = view.findViewById(R.id.fabPaste)
         progressBar = view.findViewById(R.id.progressBar)
 
-        adapter = LocalFileAdapter { file ->
-            onFileClick(file)
-        }
+        adapter = LocalFileAdapter(
+            onItemClick = { file -> onFileClick(file) },
+            onItemLongClick = { position -> onFileLongClick(position) },
+            onSelectionChanged = { selected -> onSelectionChanged(selected) }
+        )
 
         recyclerView.layoutManager = LinearLayoutManager(context)
         recyclerView.adapter = adapter
 
         btnBack.setOnClickListener {
             goToParentDirectory()
+        }
+
+        btnCopy.setOnClickListener {
+            copySelectedFiles()
         }
 
         fabPaste.setOnClickListener {
@@ -78,7 +89,6 @@ class LocalFilesFragment : Fragment() {
         textPath.text = currentPath.absolutePath
 
         val files = currentPath.listFiles()?.toList() ?: emptyList()
-        // 排序：文件夹在前，文件在后
         val sortedFiles = files.sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
         adapter.setFiles(sortedFiles)
 
@@ -86,14 +96,69 @@ class LocalFilesFragment : Fragment() {
     }
 
     private fun updatePasteButtonVisibility() {
-        fabPaste.visibility = if (FtpClientManager.hasClipboardItems()) View.VISIBLE else View.GONE
+        // 只在剪贴板有远程文件（服务器→本地方向）时显示下载按钮
+        fabPaste.visibility = if (FtpClientManager.hasRemoteClipboardItems()) View.VISIBLE else View.GONE
     }
 
     private fun onFileClick(file: File) {
-        if (file.isDirectory) {
+        if (isSelectionMode) {
+            val index = adapter.getFiles().indexOf(file)
+            if (index >= 0) adapter.toggleSelection(index)
+        } else if (file.isDirectory) {
             currentPath = file
             loadFiles()
         }
+    }
+
+    private fun onFileLongClick(position: Int): Boolean {
+        if (!isSelectionMode) {
+            enterSelectionMode()
+        }
+        adapter.toggleSelection(position)
+        return true
+    }
+
+    private fun onSelectionChanged(selected: Set<Int>) {
+        selectedItems.clear()
+        selectedItems.addAll(selected)
+
+        if (selected.isEmpty() && isSelectionMode) {
+            exitSelectionMode()
+        } else if (selected.isNotEmpty()) {
+            btnCopy.text = "复制 (${selected.size})"
+        }
+    }
+
+    private fun enterSelectionMode() {
+        isSelectionMode = true
+        adapter.setSelectionMode(true)
+        btnCopy.visibility = View.VISIBLE
+    }
+
+    private fun exitSelectionMode() {
+        isSelectionMode = false
+        adapter.setSelectionMode(false)
+        adapter.clearSelection()
+        selectedItems.clear()
+        btnCopy.visibility = View.GONE
+    }
+
+    private fun copySelectedFiles() {
+        val files = adapter.getFiles()
+
+        val clipboardItems = selectedItems.map { index ->
+            val file = files[index]
+            FtpClientManager.ClipboardItem(
+                localPath = file.absolutePath,
+                name = file.name,
+                isDirectory = file.isDirectory,
+                isLocal = true
+            )
+        }
+
+        FtpClientManager.copyToClipboard(clipboardItems)
+        Toast.makeText(context, "已复制 ${clipboardItems.size} 个项目，请切换到服务器标签页粘贴", Toast.LENGTH_LONG).show()
+        exitSelectionMode()
     }
 
     private fun goToParentDirectory() {
@@ -103,19 +168,24 @@ class LocalFilesFragment : Fragment() {
         }
     }
 
+    // 供 FileManagerActivity 调用：系统返回手势时导航上层目录
+    fun goBack() {
+        goToParentDirectory()
+    }
+
     private fun pasteFiles() {
-        val clipboardItems = FtpClientManager.getClipboard()
+        val clipboardItems = FtpClientManager.getClipboard().filter { !it.isLocal }
         if (clipboardItems.isEmpty()) {
-            Toast.makeText(context, "剪贴板为空", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "没有可下载的服务器文件", Toast.LENGTH_SHORT).show()
             return
         }
 
         val itemNames = clipboardItems.joinToString("\n") { "• ${it.name}" }
 
         AlertDialog.Builder(requireContext())
-            .setTitle("确认粘贴")
+            .setTitle("确认下载")
             .setMessage("将以下 ${clipboardItems.size} 个项目下载到:\n${currentPath.absolutePath}\n\n$itemNames")
-            .setPositiveButton("粘贴") { _, _ ->
+            .setPositiveButton("下载") { _, _ ->
                 performPaste()
             }
             .setNegativeButton("取消", null)
@@ -159,10 +229,14 @@ class LocalFilesFragment : Fragment() {
 }
 
 class LocalFileAdapter(
-    private val onItemClick: (File) -> Unit
+    private val onItemClick: (File) -> Unit,
+    private val onItemLongClick: (Int) -> Boolean,
+    private val onSelectionChanged: (Set<Int>) -> Unit
 ) : RecyclerView.Adapter<LocalFileAdapter.ViewHolder>() {
 
     private val files = mutableListOf<File>()
+    private var isSelectionMode = false
+    private val selectedPositions = mutableSetOf<Int>()
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val iconFile: android.widget.ImageView = view.findViewById(R.id.iconFile)
@@ -181,7 +255,8 @@ class LocalFileAdapter(
         val file = files[position]
 
         holder.textName.text = file.name
-        holder.checkbox.visibility = View.GONE
+        holder.checkbox.visibility = if (isSelectionMode) View.VISIBLE else View.GONE
+        holder.checkbox.isChecked = selectedPositions.contains(position)
 
         if (file.isDirectory) {
             holder.iconFile.setImageResource(android.R.drawable.ic_menu_more)
@@ -194,8 +269,16 @@ class LocalFileAdapter(
             holder.textInfo.text = "$size | $date"
         }
 
+        holder.checkbox.setOnClickListener {
+            toggleSelection(position)
+        }
+
         holder.itemView.setOnClickListener {
             onItemClick(file)
+        }
+
+        holder.itemView.setOnLongClickListener {
+            onItemLongClick(position)
         }
     }
 
@@ -204,6 +287,28 @@ class LocalFileAdapter(
     fun setFiles(newFiles: List<File>) {
         files.clear()
         files.addAll(newFiles)
+        notifyDataSetChanged()
+    }
+
+    fun getFiles(): List<File> = files.toList()
+
+    fun setSelectionMode(enabled: Boolean) {
+        isSelectionMode = enabled
+        notifyDataSetChanged()
+    }
+
+    fun toggleSelection(position: Int) {
+        if (selectedPositions.contains(position)) {
+            selectedPositions.remove(position)
+        } else {
+            selectedPositions.add(position)
+        }
+        notifyItemChanged(position)
+        onSelectionChanged(selectedPositions.toSet())
+    }
+
+    fun clearSelection() {
+        selectedPositions.clear()
         notifyDataSetChanged()
     }
 
