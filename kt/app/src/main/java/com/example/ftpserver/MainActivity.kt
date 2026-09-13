@@ -1,12 +1,16 @@
 package com.example.ftpserver
 
 import android.Manifest
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Button
 import android.widget.TextView
@@ -14,30 +18,26 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import org.apache.ftpserver.ConnectionConfigFactory
-import org.apache.ftpserver.FtpServer
-import org.apache.ftpserver.FtpServerFactory
-import org.apache.ftpserver.ftplet.Authority
-import org.apache.ftpserver.listener.ListenerFactory
-import org.apache.ftpserver.usermanager.PropertiesUserManagerFactory
-import org.apache.ftpserver.usermanager.impl.BaseUser
-import org.apache.ftpserver.usermanager.impl.ConcurrentLoginPermission
-import org.apache.ftpserver.usermanager.impl.TransferRatePermission
-import org.apache.ftpserver.usermanager.impl.WritePermission
-import java.io.File
-import java.net.Inet4Address
-import java.net.NetworkInterface
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 
 class MainActivity : AppCompatActivity() {
-    private var server: FtpServer? = null
     private lateinit var statusText: TextView
     private lateinit var toggleButton: Button
     private lateinit var btnClient: Button
 
     companion object {
-        private const val PORT = 2121
         private const val PERMISSION_REQUEST_CODE = 1
         private const val MANAGE_STORAGE_REQUEST_CODE = 2
+        private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 3
+    }
+
+    /** 接收 FtpService 的状态变化，刷新界面 */
+    private val stateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val running = intent?.getBooleanExtra(FtpService.EXTRA_RUNNING, false) ?: false
+            val message = intent?.getStringExtra(FtpService.EXTRA_MESSAGE) ?: ""
+            updateUi(running, message)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,8 +49,8 @@ class MainActivity : AppCompatActivity() {
         btnClient = findViewById(R.id.btnClient)
 
         toggleButton.setOnClickListener {
-            if (server?.isStopped == false) {
-                stopFtpServer()
+            if (FtpService.isRunning) {
+                FtpService.stop(this)
             } else {
                 checkPermissionAndStartServer()
             }
@@ -61,8 +61,65 @@ class MainActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+            stateReceiver,
+            IntentFilter(FtpService.ACTION_STATE_CHANGED)
+        )
+
         // 应用启动时自动请求权限
         checkAndRequestPermissions()
+        requestNotificationPermission()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateUi(FtpService.isRunning, FtpService.statusMessage)
+    }
+
+    override fun onDestroy() {
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(stateReceiver)
+        super.onDestroy()
+    }
+
+    private fun updateUi(running: Boolean, message: String) {
+        statusText.text = message
+        toggleButton.text = if (running) "停止服务器" else "启动服务器"
+    }
+
+    // Android 13+ 前台服务通知需要通知权限
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    NOTIFICATION_PERMISSION_REQUEST_CODE
+                )
+            }
+        }
+    }
+
+    // 请求忽略电池优化，避免锁屏后被系统冻结
+    private fun requestIgnoreBatteryOptimizations() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                try {
+                    val intent = Intent(
+                        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                        Uri.parse("package:$packageName")
+                    )
+                    startActivity(intent)
+                    Toast.makeText(this, "请允许后台运行，锁屏后FTP才不会被系统关闭", Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
     }
 
     // 应用启动时检查并请求权限
@@ -163,88 +220,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startFtpServer() {
-        try {
-            val serverFactory = FtpServerFactory()
-            val factory = ListenerFactory()
-
-            factory.port = PORT
-
-            val userManagerFactory = PropertiesUserManagerFactory()
-            val userManager = userManagerFactory.createUserManager()
-
-            val anonymousUser = BaseUser().apply {
-                name = "anonymous"
-                password = ""
-
-                // 直接使用外部存储根目录（储存卡）
-                val homeDir = Environment.getExternalStorageDirectory()
-                homeDirectory = when {
-                    homeDir?.exists() == true -> homeDir.absolutePath
-                    getExternalFilesDir(null) != null -> getExternalFilesDir(null)!!.absolutePath
-                    else -> filesDir.absolutePath
-                }
-            }
-
-            val authorities = mutableListOf<Authority>(
-                WritePermission(),
-                ConcurrentLoginPermission(10, 10),
-                TransferRatePermission(0, 0)
-            )
-            anonymousUser.authorities = authorities
-
-            userManager.save(anonymousUser)
-            serverFactory.userManager = userManager
-
-            val configFactory = ConnectionConfigFactory()
-            configFactory.isAnonymousLoginEnabled = true
-            serverFactory.connectionConfig = configFactory.createConnectionConfig()
-
-            serverFactory.addListener("default", factory.createListener())
-
-            server = serverFactory.createServer()
-            server?.start()
-
-            val ipAddress = getLocalIpAddress()
-            val homeDir = Environment.getExternalStorageDirectory()
-            statusText.text = """
-                FTP服务器运行中
-                IP: $ipAddress
-                端口: $PORT
-                根目录: ${homeDir?.absolutePath}
-                支持匿名访问
-            """.trimIndent()
-            toggleButton.text = "停止服务器"
-
-        } catch (e: Exception) {
-            e.printStackTrace()
-            statusText.text = "启动服务器失败: ${e.message}"
-        }
-    }
-
-    private fun stopFtpServer() {
-        server?.let {
-            it.stop()
-            statusText.text = "FTP服务器已停止"
-            toggleButton.text = "启动服务器"
-        }
-    }
-
-    private fun getLocalIpAddress(): String {
-        try {
-            val interfaces = NetworkInterface.getNetworkInterfaces()
-            while (interfaces.hasMoreElements()) {
-                val networkInterface = interfaces.nextElement()
-                val addresses = networkInterface.inetAddresses
-                while (addresses.hasMoreElements()) {
-                    val inetAddress = addresses.nextElement()
-                    if (!inetAddress.isLoopbackAddress && inetAddress is Inet4Address) {
-                        return inetAddress.hostAddress ?: "未知"
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return "未知"
+        // 启动前台服务，由服务持有 WakeLock/WifiLock，锁屏后继续运行
+        requestIgnoreBatteryOptimizations()
+        FtpService.start(this)
     }
 }

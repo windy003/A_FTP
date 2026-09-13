@@ -11,6 +11,14 @@
         android:maxSdkVersion="29" />
     <!-- Android 11+ 访问所有文件需要此权限 -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <!-- 锁屏后保持 FTP 服务运行 -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
         android:allowBackup="true"
@@ -37,6 +45,13 @@
         <activity
             android:name=".FileManagerActivity"
             android:exported="false" />
+
+        <!-- FTP 服务器前台服务：锁屏/黑屏后继续运行 -->
+        <service
+            android:name=".FtpService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
     </application>
 
 </manifest>
